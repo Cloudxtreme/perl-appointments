@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<head>
+	<title>Appointments</title>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge" >
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<!-- jQuery -->
+	<script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+
+	<!-- Materialize -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.2/css/materialize.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.2/js/materialize.min.js"></script>
+
+	<!--Google Icon Font-->
+    <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- Custom Css -->
+    <link rel="stylesheet" href="style.css">
+
+</head>
+<body class="grey lighten-3">
+	
+	<div class="container">
+		<div id="app">
+			<h1>Appointments</h1>
+			<div class="row">
+				<div class="hide" id="error-container">
+					<div class="card red lighten-3">
+						<div class="card-content white-text">
+							<span class="card-title"><i class="material-icons left">error</i><span id="error-message"></span><i id="error-close" class="material-icons right clickable">close</i></span>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<a id="new-appointment-btn" class="waves-effect waves-light green btn"><i class="material-icons left">create</i>New</a>
+				<form action="/appointments.cgi" method="post" class="hide" id="new-appointment-form">
+					<button type="submit" class="waves-effect waves-light green btn"><i class="material-icons left">send</i>Add</button>
+					<a id="new-appointment-form-cancel" class="waves-effect waves-light purple btn"><i class="material-icons left">cancel</i>Cancel</a>
+					<div id="new-appointment-form-container" class="row">
+						<div class="card col s12 m6 l6">
+							<div class="card-content black-text">
+								<div class="row">
+									<div class="col s12 m8 l4">
+										<label class="grey-text" for="new-appointment-form-date">Date</label>
+										<input id="new-appointment-form-date" name="date" type="date" required class="validate">
+									</div>
+								</div>
+								<div class="row">
+									<div class="col s12 m8 l4">
+										<label class="grey-text" for="new-appointment-form-time">Time</label>
+										<input id="new-appointment-form-time" name="time" type="time" required class="validate">
+									</div>
+								</div>
+								<div class="row">
+									<div class="input-field col s12 m12 l12">
+										<input id="new-appointment-form-description" name="description" type="text" required class="validate">
+										<label class="grey-text" for="new-appointment-form-description">Description</label>
+									</div>
+								</div>
+								<input id="new-appointment-form-epoch" name="epoch" type="number" class="hide">
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+			<div class="row">
+				<form id="appointments-search-form">
+					<div class="input-field col s12 m8 l9">
+						<input type="text" id="search-field">
+						<label for="search-field">Search</label>
+					</div>
+					<div class="col s8 m4 l3">
+						<button type="submit" class="waves-effect waves-light btn green input-field-button"><i class="material-icons left">search</i>Search</button>
+					</div>
+				</form>
+			</div>
+			<div class="row">
+				<div class="card white hide" id="results-table-container">
+					<div class="card-content">
+						<table id="results-table" class="centered highlight responsive-table">
+							<thead>
+								<tr>
+									<th>Date</th>
+									<th>Time</th>
+									<th>Description</th>
+								</tr>
+							</thead>
+							<tbody id="results-table-body">
+								
+							</tbody>
+						</table>
+					</div>
+				</div>
+				<div id="results-table-loading" class="progress hide">
+					<div class="indeterminate"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Application's javascript -->
+	<script src="app.js"></script>
+</body>
