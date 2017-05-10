@@ -4,6 +4,28 @@ var App = (function() {
 		search[val.split('=')[0]] = decodeURIComponent(val.split('=')[1])
 	})
 	return {
+		events: {},
+		on: function(eventName, fn) {
+			this.events[eventName] = this.events[eventName] || []
+			this.events[eventName].push(fn)
+		},
+		off: function(eventName, fn) {
+			if (this.events[eventName]) {
+				for (var i = 0; i < this.events[eventName].length; i++) {
+					if (this.events[eventName][i] === fn) {
+						this.events[eventName].splice(i, 1)
+						break
+					}
+				}
+			}
+		},
+		emit: function(eventName, data) {
+			if (this.events[eventName]) {
+				this.events[eventName].forEach(function(fn) {
+					fn(data)
+				})
+			}
+		},
 		cachedDom: {},
 		appointments: {
 			isLoading: false,
@@ -48,6 +70,12 @@ var App = (function() {
 			this.find('#new-appointment-form-time').on('input', this.updateNewAppointmentForm.bind(this))
 			this.find('#new-appointment-form-description').on('input', this.updateNewAppointmentForm.bind(this))
 			this.find('#appointments-search-form').on('submit', this.searchAppointments.bind(this))
+
+			this.on('appointments loading', this.renderAppointmentsLoading.bind(this))
+			this.on('error changed', this.renderError.bind(this))
+			this.on('new appointment form updated', this.calculateNewAppointmentEpoch.bind(this))
+			this.on('new appointments received', this.renderAppointmentsTable.bind(this))
+			this.on('toggle new appointment form', this.renderNewAppointmentForm.bind(this))
 		},
 		cacheDom: function() {
 			var selectorsToCache = [
@@ -73,14 +101,17 @@ var App = (function() {
 				}.bind(this)
 			)
 		},
-		calculateNewAppointmentEpoch: function() {
-			this.newAppointmentForm.epoch = Date.parse(
-				this.newAppointmentForm.date + ' ' + this.newAppointmentForm.time
-			)
+		calculateNewAppointmentEpoch: function(valueUpdated) {
+			if (valueUpdated === 'date' || valueUpdated === 'time' || typeof valueUpdated === 'undefined') {
+				this.newAppointmentForm.epoch = Date.parse(
+					this.newAppointmentForm.date + ' ' + this.newAppointmentForm.time
+				)
+			}
+			this.renderNewAppointmentFormData(this.newAppointmentForm)
 		},
 		closeError: function() {
 			this.error.show = false
-			this.render()
+			this.emit('error changed', this.error)
 		},
 		find: function(selector) {
 			if (typeof this.cachedDom[selector] === 'undefined') {
@@ -95,13 +126,13 @@ var App = (function() {
 				? '/appointments.cgi?query=' + encodeURIComponent(searchQuery.trim())
 				: '/appointments.cgi?query='
 			this.appointments.isLoading = true
-			this.render()
+			this.emit('appointments loading', this.appointments.isLoading)
 			$.get(
 				endpoint,
 				function(data) {
 					data.forEach(
 						function(appt) {
-							// parses epoch into date strings to be displayed in table
+							// parses epoch into date & time strings to be displayed in table
 							var date = new Date(appt.appointmentEpoch)
 							var year, month, day
 							year = date.getFullYear()
@@ -122,46 +153,54 @@ var App = (function() {
 					)
 					this.appointments.list = data
 					this.appointments.isLoading = false
-					this.renderAppointmentsTable()
-					this.render()
+					this.emit('new appointments received', data)
+					this.emit('appointments loading', this.appointments.isLoading)
 				}.bind(this)
 			)
 		},
 		init: function() {
 			this.cacheDom()
 			this.addEventListeners()
+			this.calculateNewAppointmentEpoch()
+			this.initialRender()
 		},
-		render: function() {
-			// errors from server
-			if (this.error.show) {
-				this.find('#error-container').removeClass('hide')
-				this.find('#error-message').text(this.error.message)
-			} else {
-				this.find('#error-container').addClass('hide')
-			}
-			// show or hide new appointment form
-			if (!this.newAppointmentForm.show) {
+		renderNewAppointmentForm: function(newAppointmentForm) {
+			if (!newAppointmentForm.show) {
 				this.find('#new-appointment-form').addClass('hide')
 				this.find('#new-appointment-btn').removeClass('hide')
 			} else {
 				this.find('#new-appointment-form').removeClass('hide')
 				this.find('#new-appointment-btn').addClass('hide')
 			}
-			// enforce data integrity
-			this.calculateNewAppointmentEpoch()
-			for (var key in this.newAppointmentForm) {
+		},
+		renderNewAppointmentFormData: function(newAppointmentForm) {
+			for (var key in newAppointmentForm) {
 				if (key !== 'show') {
-					this.find('#new-appointment-form-' + key).val(this.newAppointmentForm[key])
+					this.find('#new-appointment-form-' + key).val(newAppointmentForm[key])
 				}
 			}
-			// show or hide table loading animation
-			if (this.appointments.isLoading) {
+		},
+		renderAppointmentsLoading: function(appointmentsLoading) {
+			if (appointmentsLoading) {
 				this.find('#results-table-loading').removeClass('hide')
 				this.find('#results-table-container').addClass('hide')
 			} else {
 				this.find('#results-table-loading').addClass('hide')
 				this.find('#results-table-container').removeClass('hide')
 			}
+		},
+		renderError: function(error) {
+			if (error.show) {
+				this.find('#error-container').removeClass('hide')
+				this.find('#error-message').text(error.message)
+			} else {
+				this.find('#error-container').addClass('hide')
+			}
+		},
+		initialRender: function() {
+			this.renderNewAppointmentFormData(this.newAppointmentForm)
+			this.renderError(this.error)
+			this.renderNewAppointmentForm(this.newAppointmentForm)
 		},
 		renderAppointmentsTable: function() {
 			var entityMap = {
@@ -174,6 +213,7 @@ var App = (function() {
 				'`': '&#x60;',
 				'=': '&#x3D;'
 			}
+			// protect against xss attacks
 			var escapeHtml = function(string) {
 				return String(string).replace(/[&<>"'`=\/]/g, function(s) {
 					return entityMap[s]
@@ -197,19 +237,14 @@ var App = (function() {
 		},
 		toggleNewAppointmentForm: function() {
 			this.newAppointmentForm.show = !this.newAppointmentForm.show
-			this.render()
+			this.emit('toggle new appointment form', this.newAppointmentForm)
 		},
 		updateNewAppointmentForm: function(event) {
 			var newValue = event.target.value
 			// last part of the id will be the key we update
 			var valueToUpdate = event.target.id.split('-')[3]
 			this.newAppointmentForm[valueToUpdate] = newValue
-
-			// if the date or time was updated, recalculate the epoch
-			if (valueToUpdate === 'date' || valueToUpdate === 'time') {
-				this.calculateNewAppointmentEpoch()
-				this.render()
-			}
+			this.emit('new appointment form updated', valueToUpdate)
 		}
 	}
 })()
